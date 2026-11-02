@@ -76,10 +76,8 @@ const markStyles = `
 .document-content > section.docx { margin:0 auto 24px; background:#fff; box-shadow:0 2px 12px #14253d18; }
 [data-diff] { background-color:rgba(238,84,100,.25); box-shadow:inset 0 -1.5px rgba(191,40,60,.6); -webkit-box-decoration-break:clone; box-decoration-break:clone; }
 :host([data-side="after"]) [data-diff] { background-color:rgba(71,142,244,.24); box-shadow:inset 0 -1.5px rgba(35,105,211,.6); }
-[data-structural] { outline:2px dotted #d66071; outline-offset:2px; }
-:host([data-side="after"]) [data-structural] { outline-color:#5087d6; }
+[data-boundary] { position:absolute; display:inline-block; width:3px; height:1em; margin-left:2px; box-shadow:none; border-radius:1px; }
 :host([data-marks="off"]) [data-diff] { background-color:transparent; box-shadow:none; }
-:host([data-marks="off"]) [data-structural] { outline:none; }
 [data-current] { outline:2px solid #ec8190; outline-offset:2px; }
 :host([data-side="after"]) [data-current] { outline-color:#6a9ce1; }
 :host([data-marks="off"]) [data-current] { outline:none; }
@@ -176,7 +174,17 @@ export function applyMarks(doc: RenderedDocument, marks: Mark[]) {
   for (const mark of marks) {
     if (!doc.root.querySelector(`[data-diff="${mark.change}"]`)) {
       const block = doc.paragraphs.find(block => block.start < mark.end && block.end > mark.start);
-      if (block) { block.element.dataset.diff = String(mark.change); block.element.dataset.structural = ''; }
+      if (block) {
+        // A synthetic paragraph separator has no Text node to wrap. Give it a
+        // small, out-of-flow marker instead of painting the whole paragraph.
+        const marker = document.createElement('span');
+        marker.dataset.diff = String(mark.change);
+        marker.dataset.boundary = '';
+        marker.setAttribute('role', 'img');
+        marker.setAttribute('aria-label', 'Paragraph break changed');
+        marker.title = 'Paragraph break changed';
+        block.element.append(marker);
+      }
     }
   }
 }

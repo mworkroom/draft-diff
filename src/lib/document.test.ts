@@ -55,6 +55,17 @@ describe('실제 DOCX 파일 처리', () => {
     const b = await renderDocument(file, host(), 'after');
     expect(compareBlocks(a.blocks, b.blocks).changes).toEqual([]);
   });
+  it('문단 끝 줄바꿈의 변경은 본문 전체에 배경색을 입히지 않는다', async () => {
+    const doc = await renderDocument(await sample('before'), host(), 'before');
+    const paragraph = doc.paragraphs[1];
+    const originalText = paragraph.element.textContent;
+    const originalStyle = paragraph.element.getAttribute('style');
+    applyMarks(doc, [{ start: paragraph.end - 1, end: paragraph.end, change: 0 }]);
+    expect(paragraph.element.hasAttribute('data-diff')).toBe(false);
+    expect(paragraph.element.textContent).toBe(originalText);
+    expect(paragraph.element.getAttribute('style')).toBe(originalStyle);
+    expect(paragraph.element.querySelector('[data-diff="0"]')).not.toBeNull();
+  });
   it('본문 색만 바뀐 파일은 글의 변경으로 오인하지 않는다', async () => {
     const file = await sample('before');
     const zip = await JSZip.loadAsync(await file.arrayBuffer());

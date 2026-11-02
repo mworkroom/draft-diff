@@ -18,7 +18,17 @@ export function compareBlocks(beforeBlocks: string[], afterBlocks: string[]): Co
   if (beforeBlocks.join('').length + afterBlocks.join('').length > 1_500_000) {
     throw new Error('The documents contain too much text. Try comparing smaller sections.');
   }
-  const coarse = diffArrays(beforeBlocks, afterBlocks, limits);
+  if (beforeBlocks.length === afterBlocks.length && beforeBlocks.every((block, index) => block === afterBlocks[index])) {
+    return result;
+  }
+  // Empty paragraphs repeat throughout Word files. Matching them as anchors can
+  // pair a title's blank line with a section's blank line and split shared text
+  // into unrelated deletion-only / insertion-only regions. Only real text may
+  // anchor paragraphs; whitespace still participates in each word-level diff.
+  const coarse = diffArrays(beforeBlocks, afterBlocks, {
+    ...limits,
+    comparator: (before, after) => before.trim().length > 0 && before === after,
+  });
   if (!coarse) throw new Error('Too many changes to compare within the time limit. Try smaller sections.');
   let oldOffset = 0, newOffset = 0;
   let removed = '', added = '';

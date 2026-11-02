@@ -39,6 +39,16 @@ describe('본문 비교와 원본 위치', () => {
     const result = assertValid(['A\n', 'B\n', 'C\n'], ['B\n', 'C\n', 'A\n']);
     expect(result.before).toHaveLength(1); expect(result.after).toHaveLength(1);
   });
+  it('다른 위치의 빈 문단을 기준으로 같은 본문을 통째로 삭제·추가하지 않는다', () => {
+    const before = ['1 I study physics and enjoy experiments.\n', '\n', '\n', '2 I build models to answer questions.\n', '\n'];
+    const after = ['Application draft\n', '\n', 'I study physics and enjoy experiments.\n', '\n', 'I build models to test questions.\n', '\n'];
+    const result = assertValid(before, after);
+    const common = 'I study physics and enjoy experiments.';
+    for (const [blocks, marks] of [[before, result.before], [after, result.after]] as const) {
+      const start = blocks.join('').indexOf(common);
+      expect(marks.some(mark => mark.start < start + common.length && mark.end > start)).toBe(false);
+    }
+  });
   it('한글·숫자·이모지·표 셀·빈 문단의 위치를 보존한다', () => {
     assertValid(['질문을 만들었습니다. 🌍\n', '\n', '학비\n', '£30,000\n'], ['질문을 구체화했습니다. 🌌\n', '학비\n', '£31,000\n']);
   });
