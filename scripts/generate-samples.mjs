@@ -14,6 +14,11 @@ function make(after) {
       headers: { default: new Header({ children: [new Paragraph({ children: [run('EXAMPLE DOCUMENT', { color: '718096', size: 18 })] })] }) },
       footers: { default: new Footer({ children: [new Paragraph({ alignment: AlignmentType.CENTER, children: [run('DraftDiff · Synthetic example document', { font: 'Malgun Gothic', size: 18, color: '718096' })] })] }) },
       children: [
+        ...(!after ? [
+          new Paragraph({ spacing: { after: 200 }, children: [run('Reviewer comments', { bold: true, size: 28 })] }),
+          p([run('This opening feedback is not part of the student statement. Focus on the changes in the essay below. Turn off the opening-comment option to include this section in the comparison.')]),
+          p([run('단락 앞 숫자는 기존 단락 순서입니다.', { font: 'Malgun Gothic' })]),
+        ] : []),
         new Paragraph({ alignment: AlignmentType.CENTER, spacing: { after: 400 }, children: [run('Personal Statement', { bold: true, size: 38 })] }),
         p([run('Physics has fascinated me since '), run(after ? 'middle school' : 'high school', { color: 'C92841' }), run(', when I first encountered the elegant way in which simple principles can explain complex phenomena. Through textbooks and '), run(after ? 'hands-on experiments' : 'experiments'), run(', I have learned to appreciate how '), run(after ? 'the physical world' : 'the natural world', { color: '235CC4' }), run(' follows consistent rules, and this understanding continues to drive my curiosity.')]),
         p([run('During my undergraduate studies, I took '), run(after ? '4' : '3', { highlight: 'yellow', bold: true }), run(' advanced physics courses, including quantum mechanics, statistical physics, and electromagnetism. These courses strengthened my analytical skills and deepened my interest in exploring fundamental questions about the universe.')]),

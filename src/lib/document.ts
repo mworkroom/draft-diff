@@ -1,6 +1,7 @@
 import JSZip from 'jszip';
 import { renderAsync } from 'docx-preview';
 import type { Mark, Side } from './compare';
+import { excludeOpeningComments } from './opening-comments';
 
 const MAX_SIZE = 20 * 1024 * 1024;
 const MAX_UNPACKED = 100 * 1024 * 1024;
@@ -17,6 +18,8 @@ export interface RenderedDocument {
   height: number;
   warnings: string[];
 }
+
+export interface DocumentOptions { ignoreOpeningComments?: boolean }
 
 export function validateFile(file: File) {
   if (!/\.docx$/i.test(file.name)) throw new Error('Choose a .docx file. For older .doc files, save a .docx copy in Word first.');
@@ -44,7 +47,7 @@ function validateArchive(buffer: ArrayBuffer) {
   }
 }
 
-async function prepareFile(file: File) {
+async function prepareFile(file: File, options: DocumentOptions) {
   validateFile(file);
   const buffer = await file.arrayBuffer();
   validateArchive(buffer);
@@ -65,9 +68,18 @@ async function prepareFile(file: File) {
   if (/<w:(ins|del|moveFrom|moveTo)[\s>]/.test(xml)) {
     throw new Error('This document contains tracked changes. Accept or reject them in Word, save a separate .docx copy, then compare again.');
   }
+  let openingCommentsRemoved = false;
+  if (options.ignoreOpeningComments) {
+    const filtered = excludeOpeningComments(xml);
+    openingCommentsRemoved = filtered.removed;
+    if (filtered.removed) zip.file('word/document.xml', filtered.xml);
+    warnings.push(filtered.removed
+      ? 'Opening comments excluded from Before.'
+      : 'Opening-comment marker not found in Before. Full document included.');
+  }
   if (externalCount) warnings.push('External links and images are not loaded. Only embedded content is displayed.');
   if (/<w:(altChunk|txbxContent|object)[\s>]/.test(xml)) warnings.push('Some embedded objects and text boxes may not display or compare fully.');
-  return { blob: await zip.generateAsync({ type: 'blob' }), warnings };
+  return { blob: await zip.generateAsync({ type: 'blob' }), warnings, openingCommentsRemoved };
 }
 
 const markStyles = `
@@ -84,8 +96,8 @@ const markStyles = `
 a { cursor:text; }
 `;
 
-export async function renderDocument(file: File, host: HTMLElement, side: Side): Promise<RenderedDocument> {
-  const { blob, warnings } = await prepareFile(file);
+export async function renderDocument(file: File, host: HTMLElement, side: Side, options: DocumentOptions = {}): Promise<RenderedDocument> {
+  const { blob, warnings, openingCommentsRemoved } = await prepareFile(file, side === 'before' ? options : {});
   host.dataset.side = side;
   const root = host.shadowRoot ?? host.attachShadow({ mode: 'open' });
   root.replaceChildren();
@@ -136,7 +148,9 @@ export async function renderDocument(file: File, host: HTMLElement, side: Side):
     blocks.push(value);
     paragraphs.push({ element, start, end: offset });
   }
-  if (!blocks.join('').trim()) throw new Error('No body text was found to compare. Image-only documents are not supported.');
+  if (!blocks.join('').trim()) throw new Error(openingCommentsRemoved
+    ? 'No body text remains in Before. Turn off "Skip opening comments in Before" to include the full document.'
+    : 'No body text was found to compare. Image-only documents are not supported.');
   await document.fonts.ready;
   const pages = [...content.querySelectorAll<HTMLElement>('section.docx')];
   const width = Math.max(794, ...pages.map(page => page.offsetWidth));

@@ -3,6 +3,7 @@ import { FilePicker } from './components/FilePicker';
 import { DocumentPane } from './components/DocumentPane';
 import { applyMarks, renderDocument, validateFile, type RenderedDocument } from './lib/document';
 import type { Comparison, Side } from './lib/compare';
+import { OPENING_COMMENT_END } from './lib/opening-comments';
 
 function Arrow({ next = false }: { next?: boolean }) {
   return <svg viewBox="0 0 24 24" aria-hidden="true"><path d={next ? 'M5 12h14m-6-6 6 6-6 6' : 'M19 12H5m6-6-6 6 6 6'} /></svg>;
@@ -16,6 +17,7 @@ export function App() {
   const [status, setStatus] = useState('');
   const [error, setError] = useState('');
   const [showMarks, setShowMarks] = useState(true);
+  const [ignoreOpeningComments, setIgnoreOpeningComments] = useState(true);
   const [syncScroll, setSyncScroll] = useState(true);
   const [zoom, setZoom] = useState('100');
   const [current, setCurrent] = useState(-1);
@@ -25,6 +27,7 @@ export function App() {
   const scrollLock = useRef(false);
   const scrollFrame = useRef(0);
   const running = useRef(false);
+  const hasCompared = useRef(false);
 
   useEffect(() => () => { workerRef.current?.terminate(); cancelAnimationFrame(scrollFrame.current); }, []);
   useEffect(() => {
@@ -36,21 +39,26 @@ export function App() {
       validateFile(file);
       setFiles(previous => ({ ...previous, [side]: file }));
       setDocs({ before: null, after: null }); setComparison(null); setCurrent(-1);
+      hasCompared.current = false;
       setError(''); setStatus('File selected. Choose both documents, then click Compare.');
       for (const host of [beforeHost.current, afterHost.current]) host?.shadowRoot?.replaceChildren();
     } catch (cause) { setError(cause instanceof Error ? cause.message : 'Could not select the file.'); }
   }
 
-  async function compare(selected = files) {
+  async function compare(selected = files, skipComments = ignoreOpeningComments) {
     if (!selected.before || !selected.after || running.current) return;
-    running.current = true; setBusy(true); setError(''); setCurrent(-1);
+    running.current = true; hasCompared.current = true; setBusy(true); setError(''); setCurrent(-1);
     setComparison(null); setDocs({ before: null, after: null });
     setStatus('Reading documents…');
     try {
-      const [before, after] = await Promise.all([
-        renderDocument(selected.before, beforeHost.current!, 'before'),
+      const [beforeResult, afterResult] = await Promise.allSettled([
+        renderDocument(selected.before, beforeHost.current!, 'before', { ignoreOpeningComments: skipComments }),
         renderDocument(selected.after, afterHost.current!, 'after'),
       ]);
+      // Finish both renders before exposing a retry/toggle after an error.
+      if (beforeResult.status === 'rejected') throw beforeResult.reason;
+      if (afterResult.status === 'rejected') throw afterResult.reason;
+      const before = beforeResult.value, after = afterResult.value;
       setStatus('Finding changes…');
       const result = await new Promise<Comparison>((resolve, reject) => {
         const worker = new Worker(new URL('./lib/compare.worker.ts', import.meta.url), { type: 'module' });
@@ -71,6 +79,11 @@ export function App() {
       setError(cause instanceof Error ? cause.message : 'Could not compare the documents.');
       setStatus('');
     } finally { running.current = false; setBusy(false); }
+  }
+
+  function toggleOpeningComments(enabled: boolean) {
+    setIgnoreOpeningComments(enabled);
+    if (hasCompared.current && files.before && files.after) void compare(files, enabled);
   }
 
   async function demo() {
@@ -137,6 +150,11 @@ export function App() {
       <div className="file-pickers">
         <FilePicker side="before" file={files.before} disabled={busy} onFile={file => pick('before', file)} />
         <FilePicker side="after" file={files.after} disabled={busy} onFile={file => pick('after', file)} />
+      </div>
+      <div className="comparison-settings">
+        <label className="check"><input type="checkbox" checked={ignoreOpeningComments} disabled={busy}
+          onChange={event => toggleOpeningComments(event.target.checked)} />Skip opening comments in Before</label>
+        <span className="settings-help">Skip everything through: <span lang="ko">“{OPENING_COMMENT_END}”</span></span>
       </div>
       <div className="toolbar" aria-label="Comparison tools">
         <div className="toolbar-actions">
