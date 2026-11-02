@@ -2,7 +2,7 @@ import { diffArrays } from 'diff';
 
 export type Side = 'before' | 'after';
 export interface Mark { start: number; end: number; change: number }
-export interface Change { id: number; before?: Mark; after?: Mark; preview: string }
+export interface Change { id: number; before?: Mark; after?: Mark; beforeStart: number; afterStart: number; preview: string }
 export interface Comparison { before: Mark[]; after: Mark[]; changes: Change[] }
 
 const segmenter = new Intl.Segmenter('ko', { granularity: 'word' });
@@ -46,7 +46,7 @@ export function compareBlocks(beforeBlocks: string[], afterBlocks: string[]): Co
         continue;
       }
       if (!pending) {
-        pending = { id: result.changes.length, preview: '' };
+        pending = { id: result.changes.length, beforeStart: oldOffset, afterStart: newOffset, preview: '' };
         result.changes.push(pending);
       }
       pending.preview += value;

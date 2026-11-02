@@ -4,12 +4,14 @@ import { DocumentPane } from './components/DocumentPane';
 import { applyMarks, renderDocument, validateFile, type RenderedDocument } from './lib/document';
 import type { Comparison, Side } from './lib/compare';
 import { OPENING_COMMENT_END } from './lib/opening-comments';
+import { TextCompare } from './components/TextCompare';
 
 function Arrow({ next = false }: { next?: boolean }) {
   return <svg viewBox="0 0 24 24" aria-hidden="true"><path d={next ? 'M5 12h14m-6-6 6 6-6 6' : 'M19 12H5m6-6-6 6 6 6'} /></svg>;
 }
 
 export function App() {
+  const [mode, setMode] = useState<'document' | 'text'>('document');
   const [files, setFiles] = useState<{ before: File | null; after: File | null }>({ before: null, after: null });
   const [docs, setDocs] = useState<{ before: RenderedDocument | null; after: RenderedDocument | null }>({ before: null, after: null });
   const [comparison, setComparison] = useState<Comparison | null>(null);
@@ -144,9 +146,14 @@ export function App() {
     <header className="app-header">
       <div className="brand"><svg viewBox="0 0 40 40" aria-hidden="true"><rect x="15" y="12" width="19" height="24" rx="3" /><rect x="5" y="4" width="19" height="25" rx="3" /><path d="M10 11h9M10 16h7M28 20h2M28 25h2M28 30h2" /></svg><h1>DraftDiff</h1></div>
       <p className="tagline">Original formatting. Changes side by side.</p>
-      <p className="privacy">Files stay in this browser.</p>
+      <p className="privacy">Files and text stay in this browser.</p>
     </header>
     <main>
+      <nav className="mode-switch" aria-label="Compare mode">
+        <button className="button" aria-pressed={mode === 'document'} onClick={() => setMode('document')}>Document Compare</button>
+        <button className="button" aria-pressed={mode === 'text'} onClick={() => setMode('text')}>Text Compare</button>
+      </nav>
+      <div className="compare-mode" hidden={mode !== 'document'}>
       <div className="file-pickers">
         <FilePicker side="before" file={files.before} disabled={busy} onFile={file => pick('before', file)} />
         <FilePicker side="after" file={files.after} disabled={busy} onFile={file => pick('after', file)} />
@@ -183,7 +190,9 @@ export function App() {
         <DocumentPane side="before" doc={docs.before} zoom={zoom} busy={busy} hostRef={beforeHost} scrollRef={beforeScroll} onScroll={scroll} />
         <DocumentPane side="after" doc={docs.after} zoom={zoom} busy={busy} hostRef={afterHost} scrollRef={afterScroll} onScroll={scroll} />
       </div>
+      </div>
+      <div className="compare-mode" hidden={mode !== 'text'}><TextCompare /></div>
     </main>
-    <footer>Supports .docx · Files are never uploaded or saved.<span>Compares body and table text. Headers, footers and notes are display only.</span></footer>
+    <footer>{mode === 'document' ? <>Supports .docx · Files are never uploaded or saved.<span>Compares body and table text. Headers, footers and notes are display only.</span></> : <>Text Compare · Copy Before or After with red text.<span>In Word, choose Keep Source Formatting.</span></>}</footer>
   </div>;
 }
