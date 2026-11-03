@@ -84,9 +84,10 @@ export function TextCompare() {
       <label>Font<input type="text" value={format.fontFamily} maxLength={80} onChange={event => setFormat(previous => ({ ...previous, fontFamily: event.target.value }))} /></label>
       <label>Size (pt)<input type="number" min="8" max="72" step="0.5" value={Number.isNaN(format.fontSizePt) ? '' : format.fontSizePt} onChange={event => setFormat(previous => ({ ...previous, fontSizePt: event.target.valueAsNumber }))} /></label>
       <label>Line spacing<input type="number" min="1" max="3" step="0.05" value={Number.isNaN(format.lineSpacing) ? '' : format.lineSpacing} onChange={event => setFormat(previous => ({ ...previous, lineSpacing: event.target.valueAsNumber }))} /></label>
-      <span>In Word, use <strong>Keep Source Formatting</strong> to retain this format and red text.</span>
+      <label>First-line indent (cm)<input type="number" min="0" max="10" step="0.01" value={Number.isNaN(format.firstLineIndentCm) ? '' : format.firstLineIndentCm} onChange={event => setFormat(previous => ({ ...previous, firstLineIndentCm: event.target.valueAsNumber }))} /></label>
+      <span>Proofing: English (US). In Word, use <strong>Keep Source Formatting</strong> to retain this format and red text.</span>
     </fieldset>
-    {!validCopyFormat(format) && <p className="text-error" role="alert">Use a font name with letters, numbers, spaces or hyphens; size 8–72 pt; line spacing 1–3.</p>}
+    {!validCopyFormat(format) && <p className="text-error" role="alert">Use a font name with letters, numbers, spaces or hyphens; size 8–72 pt; line spacing 1–3; indent 0–10 cm.</p>}
     <p className={`text-status ${error ? 'text-error' : ''}`} role={error ? 'alert' : 'status'}>{error || status}</p>
     <div className="text-columns" aria-busy={busy}>
       {(['before', 'after'] as const).map(side => {
@@ -96,7 +97,8 @@ export function TextCompare() {
           <textarea id={`text-${side}`} ref={side === 'before' ? beforeInput : undefined} value={input[side]} disabled={busy || copying}
             spellCheck={false} placeholder={`Paste ${side === 'before' ? 'original' : 'revised'} text here…`} onChange={event => edit(side, event.target.value)} />
           <div className="text-result-heading"><h2>{title} result</h2><button className="button" disabled={!result || busy || copying || !input[side] || !validCopyFormat(format)} onClick={() => copy(side)}>Copy {title}</button></div>
-          <div className="text-result" tabIndex={0} role="region" aria-label={`${title} comparison result`}>
+          <div className="text-result" tabIndex={0} role="region" aria-label={`${title} comparison result`}
+            style={result && validCopyFormat(format) ? { textIndent: `${format.firstLineIndentCm}cm` } : undefined}>
             {result ? (input[side] ? parts[side].map((part, index) => part.changed ? <span className="changed-text" key={index}>{part.text}</span> : part.text) : <span className="result-hint">This side is empty.</span>)
               : <span className="result-hint">Compare to preview the text that will be copied.</span>}
           </div>
