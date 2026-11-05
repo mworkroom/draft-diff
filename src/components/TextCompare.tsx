@@ -85,9 +85,10 @@ export function TextCompare() {
       <label>Size (pt)<input type="number" min="8" max="72" step="0.5" value={Number.isNaN(format.fontSizePt) ? '' : format.fontSizePt} onChange={event => setFormat(previous => ({ ...previous, fontSizePt: event.target.valueAsNumber }))} /></label>
       <label>Line spacing<input type="number" min="1" max="3" step="0.05" value={Number.isNaN(format.lineSpacing) ? '' : format.lineSpacing} onChange={event => setFormat(previous => ({ ...previous, lineSpacing: event.target.valueAsNumber }))} /></label>
       <label>First-line indent (cm)<input type="number" min="0" max="10" step="0.01" value={Number.isNaN(format.firstLineIndentCm) ? '' : format.firstLineIndentCm} onChange={event => setFormat(previous => ({ ...previous, firstLineIndentCm: event.target.valueAsNumber }))} /></label>
+      <label>Space after paragraph (pt)<input type="number" min="0" max="72" step="0.5" value={Number.isNaN(format.paragraphAfterPt) ? '' : format.paragraphAfterPt} onChange={event => setFormat(previous => ({ ...previous, paragraphAfterPt: event.target.valueAsNumber }))} /></label>
       <span>Proofing: English (US). In Word, use <strong>Keep Source Formatting</strong> to retain this format and red text.</span>
     </fieldset>
-    {!validCopyFormat(format) && <p className="text-error" role="alert">Use a font name with letters, numbers, spaces or hyphens; size 8–72 pt; line spacing 1–3; indent 0–10 cm.</p>}
+    {!validCopyFormat(format) && <p className="text-error" role="alert">Use a font name with letters, numbers, spaces or hyphens; size 8–72 pt; line spacing 1–3; indent 0–10 cm; paragraph spacing 0–72 pt.</p>}
     <p className={`text-status ${error ? 'text-error' : ''}`} role={error ? 'alert' : 'status'}>{error || status}</p>
     <div className="text-columns" aria-busy={busy}>
       {(['before', 'after'] as const).map(side => {

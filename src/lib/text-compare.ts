@@ -1,8 +1,8 @@
 import type { Comparison, Mark } from './compare';
 
-export interface CopyFormat { fontFamily: string; fontSizePt: number; lineSpacing: number; firstLineIndentCm: number }
+export interface CopyFormat { fontFamily: string; fontSizePt: number; lineSpacing: number; firstLineIndentCm: number; paragraphAfterPt: number }
 export interface TextPart { text: string; changed: boolean }
-export const DEFAULT_COPY_FORMAT: CopyFormat = { fontFamily: 'Times New Roman', fontSizePt: 12, lineSpacing: 1.5, firstLineIndentCm: 1.27 };
+export const DEFAULT_COPY_FORMAT: CopyFormat = { fontFamily: 'Times New Roman', fontSizePt: 12, lineSpacing: 1.5, firstLineIndentCm: 1.27, paragraphAfterPt: 12 };
 export const FORMAT_STORAGE_KEY = 'draftdiff.text-format.v1';
 
 export function validCopyFormat(value: unknown): value is CopyFormat {
@@ -11,15 +11,16 @@ export function validCopyFormat(value: unknown): value is CopyFormat {
   return typeof format.fontFamily === 'string' && /^[\p{L}\p{N} _-]{1,80}$/u.test(format.fontFamily)
     && Number.isFinite(format.fontSizePt) && format.fontSizePt >= 8 && format.fontSizePt <= 72
     && Number.isFinite(format.lineSpacing) && format.lineSpacing >= 1 && format.lineSpacing <= 3
-    && Number.isFinite(format.firstLineIndentCm) && format.firstLineIndentCm >= 0 && format.firstLineIndentCm <= 10;
+    && Number.isFinite(format.firstLineIndentCm) && format.firstLineIndentCm >= 0 && format.firstLineIndentCm <= 10
+    && Number.isFinite(format.paragraphAfterPt) && format.paragraphAfterPt >= 0 && format.paragraphAfterPt <= 72;
 }
 
 export function loadCopyFormat(): CopyFormat {
   try {
     const value: unknown = JSON.parse(localStorage.getItem(FORMAT_STORAGE_KEY) ?? 'null');
-    // Keep preferences saved before the indent setting was introduced.
+    // Add new fields without resetting previously saved copy preferences.
     if (value && typeof value === 'object') {
-      const migrated = { firstLineIndentCm: DEFAULT_COPY_FORMAT.firstLineIndentCm, ...value };
+      const migrated = { firstLineIndentCm: DEFAULT_COPY_FORMAT.firstLineIndentCm, paragraphAfterPt: DEFAULT_COPY_FORMAT.paragraphAfterPt, ...value };
       if (validCopyFormat(migrated)) return migrated;
     }
   } catch { /* Storage can be unavailable; copying still works with defaults. */ }
@@ -72,7 +73,7 @@ export function textParts(text: string, marks: Mark[]): TextPart[] {
 const escapeHtml = (text: string) => text.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;').replace(/'/g, '&#39;');
 
 export function highlightedHtml(parts: TextPart[], format: CopyFormat): string {
-  if (!validCopyFormat(format)) throw new Error('Choose a font name, size 8–72 pt, line spacing 1–3, and first-line indent 0–10 cm.');
+  if (!validCopyFormat(format)) throw new Error('Choose a font name, size 8–72 pt, line spacing 1–3, first-line indent 0–10 cm, and paragraph spacing 0–72 pt.');
   const font = `font-family:'${escapeHtml(format.fontFamily)}';font-size:${format.fontSizePt}pt;mso-ansi-language:EN-US`;
   const content = parts.map(part => {
     // Preserve spaces and tabs as their original code points. Word's HTML
@@ -84,7 +85,7 @@ export function highlightedHtml(parts: TextPart[], format: CopyFormat): string {
   // Word collapses spaces in a normal paragraph, even with white-space and
   // mso-spacerun. A PRE context preserves actual U+0020 characters; the inner
   // paragraph supplies Word's font and proportional line-spacing properties.
-  return `<html lang="en-US"><head><meta charset="utf-8"></head><body lang="en-US"><!--StartFragment--><pre lang="en-US" style="margin:0;white-space:pre-wrap"><p lang="en-US" style="margin:0;${font};line-height:${format.lineSpacing * 100}%;text-indent:${format.firstLineIndentCm}cm;mso-line-height-rule:auto;white-space:pre-wrap"><span lang="en-US" style="${font}">${content}</span></p></pre><!--EndFragment--></body></html>`;
+  return `<html lang="en-US"><head><meta charset="utf-8"></head><body lang="en-US"><!--StartFragment--><pre lang="en-US" style="margin:0;white-space:pre-wrap"><p lang="en-US" style="margin:0 0 ${format.paragraphAfterPt}pt;${font};line-height:${format.lineSpacing * 100}%;text-indent:${format.firstLineIndentCm}cm;mso-line-height-rule:auto;white-space:pre-wrap"><span lang="en-US" style="${font}">${content}</span></p></pre><!--EndFragment--></body></html>`;
 }
 
 export async function copyHighlightedText(text: string, parts: TextPart[], format: CopyFormat): Promise<void> {

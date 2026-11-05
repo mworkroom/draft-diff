@@ -70,6 +70,8 @@ describe('Word 복사용 HTML과 설정', () => {
     expect(doc.querySelector('p')?.style.fontSize).toBe('12pt');
     expect(doc.querySelector('p')?.style.lineHeight).toBe('150%');
     expect(doc.querySelector('p')?.style.textIndent).toBe('1.27cm');
+    expect(doc.querySelector('p')?.style.marginBottom).toBe('12pt');
+    expect(doc.querySelector('p')?.style.marginTop).toBe('0px');
     expect(doc.querySelector('p')?.lang).toBe('en-US');
     expect(html).toContain('mso-ansi-language:EN-US');
     expect([...doc.querySelectorAll('span')].filter(el => el.style.color).map(el => el.textContent)).toEqual(['new']);
@@ -84,21 +86,41 @@ describe('Word 복사용 HTML과 설정', () => {
     expect(highlightedHtml([{ text: 'a\n\nb', changed: false }], DEFAULT_COPY_FORMAT)).toContain('a<br><br>b');
   });
   it('사용자 설정을 읽고 잘못된 설정과 CSS 주입을 거부한다', () => {
-    const custom = { fontFamily: 'Arial', fontSizePt: 14, lineSpacing: 2, firstLineIndentCm: 0 };
+    const custom = { fontFamily: 'Arial', fontSizePt: 14, lineSpacing: 2, firstLineIndentCm: 0, paragraphAfterPt: 6 };
     localStorage.setItem(FORMAT_STORAGE_KEY, JSON.stringify(custom)); expect(loadCopyFormat()).toEqual(custom);
     localStorage.setItem(FORMAT_STORAGE_KEY, '{'); expect(loadCopyFormat()).toEqual(DEFAULT_COPY_FORMAT);
     expect(validCopyFormat({ ...custom, fontFamily: 'Arial; color:red' })).toBe(false);
     expect(validCopyFormat({ ...custom, fontSizePt: NaN })).toBe(false);
     expect(validCopyFormat({ ...custom, lineSpacing: 0 })).toBe(false);
     expect(validCopyFormat({ ...custom, firstLineIndentCm: -1 })).toBe(false);
+    for (const paragraphAfterPt of [-1, 73, NaN, Infinity, '12', undefined]) {
+      expect(validCopyFormat({ ...custom, paragraphAfterPt })).toBe(false);
+    }
     expect(() => highlightedHtml([], { ...custom, fontFamily: '<img>' })).toThrow();
   });
   it('기존 저장 설정에 들여쓰기 기본값을 추가하고 철자를 바꾸지 않는다', () => {
     localStorage.setItem(FORMAT_STORAGE_KEY, JSON.stringify({ fontFamily: 'Arial', fontSizePt: 14, lineSpacing: 2 }));
-    expect(loadCopyFormat()).toEqual({ fontFamily: 'Arial', fontSizePt: 14, lineSpacing: 2, firstLineIndentCm: 1.27 });
+    expect(loadCopyFormat()).toEqual({ fontFamily: 'Arial', fontSizePt: 14, lineSpacing: 2, firstLineIndentCm: 1.27, paragraphAfterPt: 12 });
     const text = 'I realised the importance of colour.';
     const doc = new DOMParser().parseFromString(highlightedHtml([{ text, changed: false }], DEFAULT_COPY_FORMAT), 'text/html');
     expect(doc.body.textContent).toBe(text);
+  });
+  it('기존 들여쓰기를 보존하며 단락 뒤 간격 기본값만 추가한다', () => {
+    const saved = { fontFamily: 'Arial', fontSizePt: 14, lineSpacing: 2, firstLineIndentCm: 0.8 };
+    localStorage.setItem(FORMAT_STORAGE_KEY, JSON.stringify(saved));
+    expect(loadCopyFormat()).toEqual({ ...saved, paragraphAfterPt: 12 });
+  });
+  it.each([0, 6, 12, 18.5, 72])('단락 뒤 %spt를 빈 줄이나 공백 추가 없이 복사한다', paragraphAfterPt => {
+    const text = '  A\tB  ';
+    const format = { ...DEFAULT_COPY_FORMAT, paragraphAfterPt };
+    localStorage.setItem(FORMAT_STORAGE_KEY, JSON.stringify(format));
+    expect(loadCopyFormat()).toEqual(format);
+    const doc = new DOMParser().parseFromString(highlightedHtml([{ text, changed: true }], format), 'text/html');
+    expect(doc.body.textContent).toBe(text);
+    expect(doc.querySelectorAll('p')).toHaveLength(1);
+    expect(doc.querySelector('br')).toBeNull();
+    expect(doc.querySelector('p')?.style.marginBottom).toBe(`${paragraphAfterPt}pt`);
+    expect(doc.querySelector('span[style="color:#ff0000"]')?.textContent).toBe(text);
   });
   it('클립보드에 HTML과 정확한 일반 텍스트를 함께 기록한다', async () => {
     const text = '  A\tB\nC  ';
