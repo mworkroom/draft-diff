@@ -721,7 +721,7 @@ footer span {
 
 .text-compare {
   /* 창 높이를 조절하려면 이 값을 변경하세요. 넓은 데스크톱의 기본 최소 높이입니다. */
-  --text-panel-height: 320px;
+  --text-panel-height: 280px;
   display: flex;
   flex-direction: column;
   gap: 14px;
